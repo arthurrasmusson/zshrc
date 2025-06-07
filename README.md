@@ -1,4 +1,6 @@
-# Friendly Interactive SHell (FISH)-like .zshrc
+# AFISH-Z
+
+Arthur's Friendly Interactive SHell (FISH)-like .zshrc
 
 ### Install
 ```
