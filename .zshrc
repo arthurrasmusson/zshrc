@@ -6,16 +6,11 @@ export PATH="/opt/homebrew/opt/python@3.13/libexec/bin:$PATH"
 
 
 # ─── 2) ZSH OPTION “FISH-LIKE” CONVENIENCES ────────────────────────────────
-# auto-cd: type a directory name and you’ll cd into it
-setopt AUTO_CD
-# autocorrect: fix minor typos in commands
-setopt CORRECT
-# share history across all sessions immediately
-setopt SHARE_HISTORY
-# ignore duplicate history entries
-setopt HIST_IGNORE_ALL_DUPS
-# extended globbing (fish ⟨…⟩-style wildcards)
-setopt EXTENDED_GLOB
+setopt AUTO_CD               # auto-cd: type a directory name and cd into it
+setopt CORRECT               # autocorrect: fix minor typos in commands
+setopt SHARE_HISTORY         # share history across all sessions immediately
+setopt HIST_IGNORE_ALL_DUPS  # ignore duplicate history entries
+setopt EXTENDED_GLOB         # extended globbing (fish-style ⟨…⟩ wildcards)
 
 
 # ─── 3) HISTORY ─────────────────────────────────────────────────────────────
@@ -30,20 +25,22 @@ compinit
 
 
 # ─── 5) SYNTAX HIGHLIGHTING & AUTOSUGGESTIONS ─────────────────────────────
-# (install via Homebrew: brew install zsh-syntax-highlighting zsh-autosuggestions)
+# (brew install zsh-syntax-highlighting zsh-autosuggestions)
 if [ -r /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
   source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 fi
-
 if [ -r /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]; then
   source /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 fi
 
 
-# ─── 6) PROMPT (“PURE”-STYLE) ───────────────────────────────────────────────
-# (you can install via: brew install romkatv/powerlevel10k/powerlevel10k)
+# ─── 6) PROMPT (“PURE” OR POWERLEVEL10K) ────────────────────────────────────
+# (brew install romkatv/powerlevel10k/powerlevel10k)
 if type p10k >&/dev/null; then
-  # if you use Powerlevel10k…
+  # Powerlevel10k installed via Homebrew
+  if [ -r /opt/homebrew/share/powerlevel10k/powerlevel10k.zsh-theme ]; then
+    source /opt/homebrew/share/powerlevel10k/powerlevel10k.zsh-theme
+  fi
   [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 elif type promptinit >&/dev/null; then
   autoload -Uz promptinit; promptinit
@@ -57,7 +54,9 @@ fi
 
 # ─── 7) PLUGINS & ALIASES ───────────────────────────────────────────────────
 # autojump (brew install autojump)
-[ -r /opt/homebrew/share/autojump/autojump.zsh ] && source /opt/homebrew/share/autojump/autojump.zsh
+if [ -f /opt/homebrew/etc/profile.d/autojump.sh ]; then
+  source /opt/homebrew/etc/profile.d/autojump.sh
+fi
 
 # handy aliases
 alias ll='ls -lh'
@@ -67,8 +66,8 @@ alias gl='git log --oneline --graph --decorate'
 
 
 # ─── 8) KEYBINDINGS ─────────────────────────────────────────────────────────
-# vi-style editing
-bindkey -v
+bindkey -v  # vi-style editing
+
 
 # EOF
 
