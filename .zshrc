@@ -144,7 +144,7 @@ EOF
         *) echo "Unsupported OS for update: $ZSH_OS" ;;
       esac
       echo "Pulling latest .zshrc..."
-      git -C "$HOME/Git/zshrc" pull origin main
+      git -C "$HOME/Git/zshrc" pull origin master
       ;;
 
     nvidia)
