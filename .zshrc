@@ -207,7 +207,7 @@ done
 # 6)  PROMPT
 # ──────────────────────────────────────────────────────────────────────────
 setopt PROMPT_SUBST
-PROMPT='%F{cyan}%n@%m%f [RNvZSH]: %F{yellow}%~%f %F{green}»%f '
+PROMPT='%F{cyan}%n@%m%f [rnvzsh]: %F{yellow}%~%f %F{green}»%f '
 
 
 
@@ -442,4 +442,5 @@ EOF
 }
 
 # For muscle-memory with the old name
+alias zshtool='rnvzsh'
 alias zshtool='rzsh'
