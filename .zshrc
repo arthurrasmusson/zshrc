@@ -442,5 +442,5 @@ EOF
 }
 
 # For muscle-memory with the old name
-alias znvzsh='rzsh'
+alias rnvzsh='rzsh'
 alias zshtool='rzsh'
