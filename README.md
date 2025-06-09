@@ -1,90 +1,107 @@
-# Rasmusson‑Nvidia ZSHell (RNvZSH)
-*Arthur's Nvidia Z‑shell configuration for CUDA development on Project Digits.*
+# Rasmusson‑Nvidia ZSHell (RNvZSH)
+*A zero‑hassle Z‑shell profile tailored for CUDA
+development on **Project Digits** machines.*
 
 ---
 
-## 🔧 Quick & Easy Setup
+## ⚡ Quick start
 ```bash
-# 1. grab the files
-git clone https://github.com/arthurrasmusson/zshrc.git ~/Git/zshrc   
+# 1. Clone the repo
+git clone https://github.com/arthurrasmusson/zshrc.git ~/Git/zshrc
 
-# 2. drop the profile in place
-ln -sf ~/Git/zshrc/.zshrc ~/.zshrc                        
+# 2. Activate it
+ln -sf ~/Git/zshrc/.zshrc ~/.zshrc
 
-# 3. open a new terminal  ➜  enjoy the green banner!
+# 3. Launch a new terminal → enjoy the green banner!
 ````
 
-> **macOS extra:**
-> If you regularly SSH into a Linux build box, set
-> Create ~/.project-digits and put your username and remote inside.
-> Example : root@0.0.0.0
-> RNvZSH will show a *Server UP/DOWN* line and list running
-> microk8s pods + Docker containers each time you start Terminal.
+> **Login shell (optional)**
+>
+> ```bash
+> sudo ln -s "$(command -v zsh)" /usr/local/bin/rnvzsh
+> echo "/usr/local/bin/rnvzsh" | sudo tee -a /etc/shells
+> chsh -s /usr/local/bin/rnvzsh
+> ```
 
-> **Login shell (optional):**
-> `sudo ln -s "$(command -v zsh)" /usr/local/bin/rnvzsh && \
->  echo "/usr/local/bin/rnvzsh" | sudo tee -a /etc/shells && \
->  chsh -s /usr/local/bin/rnvzsh`
-
-That’s **it**—no plug‑in managers, no 300‑line installer script.
-Clone, link, reload. Done.
-
----
-
-## 🐚 What you get out‑of‑the‑box
-
-* **Banner & health block** – “Welcome to Rasmusson‑Nvidia ZSHell”
-  plus live driver/CUDA/cuFile status (Linux) **or** remote cluster
-  status (macOS).
-* **Prompt** – `alice@mybox [RNvSH]: ~/code »`
-* **Powerlevel10k** if present, otherwise Pure, otherwise a tidy fallback.
-* **Plugins** – syntax highlighting, autosuggestions, autojump.
-* **Shared history**, sane options, vi‑mode key‑bindings.
-* **A one‑stop helper** command called **`rzsh`**.
+> **Remote helper (macOS)**
+> Create `~/.project-digits` containing one line, e.g.
+> `root@172.29.0.47` – or export `remote=…`.
+> Every macOS shell start then shows a *Server UP/DOWN* banner plus a
+> live list of MicroK8s pods & Docker containers on the remote.
 
 ---
 
-## 📜 Command reference (verbose)
+## 🧰 What RNvZSH gives you
 
-| Command                           | Purpose                                | Detailed behaviour                                                                                                                                                                                                                                                                                                                              |
-| --------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `rzsh help`                       | Built‑in manual.                       | Prints the same table you are reading plus examples.                                                                                                                                                                                                                                                                                            |
-| `rzsh install`                    | Bootstrap a fresh system.              | Detects distro (macOS brew, Ubuntu apt, Arch pacman, Fedora dnf, RHEL yum, Gentoo emerge) and installs: Git, Python 3, VS Code, Veracrypt, Ghidra, Z‑shell plugins, Powerlevel10k, Autojump, **and** NVIDIA prerequisites (`cuda`, `nvidia‑gds`, `nvidia‑docker`) on Linux. Creates a minimal `~/.gitconfig` so `git commit` works immediately. |
-| `rzsh update`                     | Keep things current.                   | Runs the appropriate package‑manager upgrade command *and* pulls the latest version of this repo into `~/Git/zshrc`.                                                                                                                                                                                                                            |
-| `rzsh nvidia status`              | Instant driver health.                 | Shows: Loaded kernel modules or missing ones, status of `nvidia‑fabricmanager` and `nvidia‑persistenced` services, CUDA toolkit version, **cuFile API** probe (`gdscheck.py -p`).                                                                                                                                                               |
-| `rzsh nvidia install`             | Install drivers from distro repos.     | Uses apt/dnf/pacman/etc. to pull the meta‑packages *nvidia‑driver*, *cuda*, *nvidia‑docker2*, *nvidia‑gds*.                                                                                                                                                                                                                                     |
-| `rzsh nvidia install local <ver>` | Install drivers from `.run` installer. | Downloads `cuda_<ver>_linux.run` if missing, runs it silently (`--toolkit --override`). Good for air‑gapped servers.                                                                                                                                                                                                                            |
-| `rzsh nvidia update`              | Update drivers & CUDA.                 | Runs the package‑manager upgrade path for only NVIDIA packages.                                                                                                                                                                                                                                                                                 |
-| `rzsh nvidia download cuda <ver>` | Just download the `.run`.              | Leaves the file in the current directory; no installation.                                                                                                                                                                                                                                                                                      |
-| `rzsh nvidia dump cuda <ver>`     | Inspect the `.run`.                    | Extracts the installer into `./cuda_<ver>_extract/` so you can peek at RPM/DEB payloads.                                                                                                                                                                                                                                                        |
-| `rzsh nvidia cuda repack <ver>`   | Re‑bundle an extracted toolkit.        | Requires `makeself`; turns the folder back into a smaller self‑extracting archive—handy for staging custom toolkits.                                                                                                                                                                                                                            |
-| `rzsh nvidia rmapi`               | (stub) RM API tooling.                 | Placeholder for future Resource Manager API scripts.                                                                                                                                                                                                                                                                                            |
-| `rzsh nvidia tensorrt-llm init`   | Fork helper.                           | Clones NVIDIA’s **TensorRT‑LLM** repo, adds your personal fork remote.                                                                                                                                                                                                                                                                          |
-| `rzsh git push`                   | One‑liner dot‑file commit.             | Adds **all** changes in `~/Git/zshrc`, commits with a timestamp message, pushes to *origin*. Perfect for “save & forget” snapshots.                                                                                                                                                                                                             |
+| Area                  | Highlights                                                                                                                                 |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Banner**            | *Welcome …* plus driver / CUDA / cuFile **OK/FAIL** (Linux) or remote‑cluster status (macOS).                                              |
+| **Prompt**            | `alice@box [rnvzsh]: ~/path »`                                                                                                             |
+| **Plugins**           | `zsh-syntax-highlighting`, `zsh-autosuggestions`, `autojump`.                                                                              |
+| **Theme**             | Auto‑detects *Powerlevel10k* → *Pure* → minimal fallback.                                                                                  |
+| **History & options** | Shared, deduped history; vi‑mode key‑bindings.                                                                                             |
+| **Generic CUDA env**  | Automatically exports `$CUDA_HOME`, `$PATH`, `$LD_LIBRARY_PATH`, etc. for the *latest* `/usr/local/cuda‑*` tree—no edits between versions. |
+| **NGC key**           | If `~/.NGC-KEY` exists it is sourced automatically.                                                                                        |
+| **Helper CLI**        | One command – `rzsh` – covers install, update, NVIDIA management, git push, and **interactive SSH (`connect zsh`)**.                       |
 
 ---
 
-## 🔍 How the remote check works (macOS)
+## 📝 Top‑level `rzsh` commands
 
-1. Set an env variable: `export remote=myuser@gpu‑box` (or use `SSH_REMOTE`).
-2. On Terminal start RNvZSH runs a 3‑second SSH banner probe.
-
-   * If it connects – it prints **Server: UP** and executes:
-
-     * `microk8s kubectl get pods -A` (lists pods)
-     * `docker ps --format "{{.Names}}"` (lists containers)
-   * If it times‑out – it prints **Server: DOWN**.
-3. Output is compressed into one line:
-   `PODs: [namespace/app  db/mysql  web_frontend]`
-
-No extra Python, no local MicroK8s needed on your Mac.
+| Command                   | What it does                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `rzsh help`               | Global help screen.                                                                                           |
+| `rzsh install`            | Bootstrap packages for the current OS (brew/apt/dnf/pacman/…).                                                |
+| `rzsh update`             | Upgrade those packages & pull the latest dot‑files.                                                           |
+| `rzsh connect zsh [host]` | SSH to *host* (or `$SSH_REMOTE`/`~/.project-digits`) and start a login **zsh** – CUDA env ready on first try. |
+| `rzsh git push`           | Snapshot & push your `~/Git/zshrc` with a date‑stamp commit.                                                  |
 
 ---
 
-## ✒️ License
+## 🔧 `rzsh nvidia` sub‑commands
 
-GPLv3.  Fork, copy, cherry‑pick—just drop a star if you like it.
+| Sub‑command           | Description                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `status`              | Verbose report: kernel modules, services, driver & CUDA versions, per‑GPU table, cuFile probe (`gdscheck -p`). |
+| `install`             | Install driver + CUDA from distro repositories.                                                                |
+| `install local [VER]` | Install from a downloaded `cuda_<ver>_linux.run`.                                                              |
+| `update`              | Upgrade NVIDIA packages only.                                                                                  |
+| `download cuda <VER>` | Fetch the `.run` installer but don’t install.                                                                  |
+| `dump cuda <VER>`     | Extract a `.run` file to `./cuda_<ver>_extract/`.                                                              |
+| `cuda repack <VER>`   | Re‑package an extracted toolkit (needs `makeself`).                                                            |
+| `rmapi`               | Placeholder for Resource‑Manager API helpers.                                                                  |
+| `tensorrt-llm init`   | Clone NVIDIA/TensorRT‑LLM and add your fork remote.                                                            |
+
+Run `rzsh nvidia help` to see the table at any time.
 
 ---
 
-*Made with ☕ and \:gpu: by Arthur H. Rasmusson.*
+## 🔍 Remote‑status logic (macOS)
+
+```text
+┌─ ping 1 s ──┐
+│             │
+│    reachable? ── no → "Server: DOWN"
+│             │
+└─ yes ─ ssh (BatchMode) ─┐
+                          │
+                key works? │
+               ┌───────────┘
+               ▼
+ "Server: UP" + live list of
+ - microk8s pods (JSONPath – no <none>)
+ - docker ps names/status
+```
+
+No additional tooling is required on your Mac; everything runs through
+OpenSSH.
+
+---
+
+## 🛡️ License
+
+GPL v3 – hack away; please credit and open PRs!
+
+---
+
+*Crafted with ☕ + tensor cores by Arthur Rasmusson*
