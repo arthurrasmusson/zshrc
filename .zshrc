@@ -187,9 +187,9 @@ done
 # ──────────────────────────────────────────────────────────────────────────
 # 6)  PROMPT
 # ──────────────────────────────────────────────────────────────────────────
-#   Format: alice@host [RNvSH]: /current/dir »
+#   Format: alice@host [RNvZSH]: /current/dir »
 setopt PROMPT_SUBST
-PROMPT='%F{cyan}%n@%m%f [RNvSH]: %F{yellow}%~%f %F{green}»%f '
+PROMPT='%F{cyan}%n@%m%f [RNvZSH]: %F{yellow}%~%f %F{green}»%f '
 
 
 
