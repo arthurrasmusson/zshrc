@@ -335,7 +335,52 @@ EOF
     nvidia)
       case "$sub" in
         status)
-          _rnvzsh_nvidia_status
+          # ───────────────────────────────────────────────────────────────
+          # Verbose NVIDIA platform report
+          # ───────────────────────────────────────────────────────────────
+          printf '\n\e[1;33m=== NVIDIA PLATFORM STATUS ===\e[0m\n'
+
+          # Kernel modules
+          if lsmod | grep -qE '^nvidia(_|$)'; then
+            echo "Kernel Modules : OK (nvidia, nvidia_fs, … loaded)"
+          else
+            echo "Kernel Modules : \e[31mMISSING\e[0m"
+          fi
+
+          # Services
+          local svc_state
+          for s in nvidia-fabricmanager nvidia-persistenced; do
+            if systemctl is-active --quiet "$s"; then
+              svc_state="running"
+            else
+              svc_state="\e[31mNOT RUNNING\e[0m"
+            fi
+            printf 'Service %-22s : %b\n' "$s" "$svc_state"
+          done
+
+          # Driver / CUDA
+          if command -v nvidia-smi &>/dev/null; then
+            local drv ver cuda
+            drv=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -n1)
+            cuda=$(nvidia-smi --query-gpu=cuda_version   --format=csv,noheader | head -n1)
+            echo "Driver Version : $drv"
+            echo "CUDA Runtime   : $cuda"
+          fi
+
+          # GPU inventory
+          if command -v nvidia-smi &>/dev/null; then
+            echo -e "\nGPU Inventory :"
+            nvidia-smi --query-gpu=index,name,memory.total,utilization.gpu \
+                       --format=csv,noheader,nounits |
+              awk -F, 'BEGIN{printf "  IDX | %-35s | Mem(GB) | Util(%%)\n", "Model"; print "  ----+-------------------------------------+---------+--------"} \
+                       {printf "  %3d | %-35s | %8.1f | %6s\n", $1, $2, $3/1024, $4}'
+          fi
+
+          # cuFile
+          local cufs=$(_rnvzsh_cufile_status)
+          echo -e "\nGPUDirect Storage : $cufs"
+
+          printf '\e[1;33m===========================================\e[0m\n\n'
           ;;
         install)
           if [[ "$extra" == "local" ]]; then
