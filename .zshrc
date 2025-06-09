@@ -28,20 +28,38 @@ _rnvzsh_banner() { echo -e "\n\033[1;32mWelcome to Rasmusson-Nvidia ZSHell\033[0
 _rnvzsh_cufile_status() {
   local gdscheck cufs
 
-  if command -v gdscheck.py &>/dev/null; then
+  # Prefer the compiled helper if present
+  if command -v gdscheck &>/dev/null; then
+    gdscheck=$(command -v gdscheck)
+  elif command -v gdscheck.py &>/dev/null; then
     gdscheck=$(command -v gdscheck.py)
   else
-    for g in /usr/local/cuda*/gds/tools/gdscheck.py; do
-      [[ -r $g ]] && { gdscheck=$g; break; }
+    for g in /usr/local/cuda*/gds/tools/gdscheck{,.py}; do
+      [[ -x $g || -r $g ]] && { gdscheck=$g; break; }
     done
   fi
 
   if [[ -n $gdscheck ]]; then
-    python "$gdscheck" -p &>/dev/null
-    cufs=$([ $? -eq 0 ] && echo OK || echo FAIL)
+    local py_exec="python"
+    command -v python3 &>/dev/null && py_exec="python3"
+
+    # Capture output; decide OK/FAIL by looking for the success banner
+    local out
+    if [[ $gdscheck == *.py ]]; then
+      out=$($py_exec "$gdscheck" -p 2>/dev/null)
+    else
+      out=$("$gdscheck" -p 2>/dev/null)
+    fi
+
+    if echo "$out" | grep -q -e "Platform verification succeeded" -e "All checks passed"; then
+      cufs="OK"
+    else
+      cufs="FAIL"
+    fi
   else
-    cufs="gdscheck.py missing"
+    cufs="gdscheck not found"
   fi
+
   echo "$cufs"
 }
 
