@@ -1,49 +1,56 @@
 # ~/.zshrc ────────────────────────────────────────────────────────────────
-#  Rasmusson-Nvidia ZSHell  (RNvZSH)
+#  Rasmusson‑Nvidia ZSHell  (RNvZSH)
 #  ------------------------------------------------------------------------
-#  A cross-platform Z-shell profile with first-class NVIDIA CUDA / GPUDirect
-#  Storage support on Linux **and** remote-cluster introspection on macOS.
+#  Cross‑platform Z‑shell profile with NVIDIA CUDA / GPUDirect Storage
+#  helpers on Linux **and** remote‑cluster introspection on macOS.
 #
 #  Author: Arthur Hanson Rasmusson  <arthur@vgpu.io>
 #  ------------------------------------------------------------------------
+#  OPTIONAL — make RNvZSH your login shell
+#     sudo ln -s "$(command -v zsh)" /usr/local/bin/rnvzsh
+#     echo "/usr/local/bin/rnvzsh" | sudo tee -a /etc/shells
+#     chsh -s /usr/local/bin/rnvzsh
+#  ------------------------------------------------------------------------
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# 0)  START-UP:  banner, environment probes, remote / GPU status
+# 0)  START‑UP: banner, environment probes, remote/GPU status
 # ──────────────────────────────────────────────────────────────────────────
 
-## 0.1  Populate $SSH_REMOTE from ~/.project-digits (one-liner like
-##      “root@172.29.0.47”) if not already set.
+## 0.1  Populate $SSH_REMOTE from ~/.project-digits
+#       (expects one line, e.g. “root@172.29.0.47”).
 if [[ -z $SSH_REMOTE && -f ~/.project-digits ]]; then
   SSH_REMOTE=$(< ~/.project-digits)
-  SSH_REMOTE=${SSH_REMOTE//[$'\t\r\n ']}   # strip whitespace
+  SSH_REMOTE=${SSH_REMOTE//[$'\t\r\n ']}   # trim whitespace
 fi
 
-## 0.2  Banner --------------------------------------------------------------
+## 0.2  Banner  -------------------------------------------------------------
 _rnvzsh_banner() {
   echo -e "\n\033[1;32mWelcome to Rasmusson-Nvidia ZSHell\033[0m"
 }
 
-## 0.3  cuFile / GPUDirect Storage probe (Linux only) ----------------------
+## 0.3  cuFile / GPUDirect Storage probe (Linux) ---------------------------
+# NOTE:  Do *not* name a variable “status” — that identifier is a
+#        readonly special parameter in Z‑shell holding the last exit code.
 _rnvzsh_cufile_status() {
-  local version cuda_base gdscheck status
+  local version cuda_base gdscheck cufs
   if command -v nvcc &>/dev/null; then
     version=$(nvcc --version | awk -F' ' '/release/ {print $6}' | tr -d ,)
     cuda_base="/usr/local/cuda-$version"
     gdscheck="$cuda_base/gds/tools/gdscheck.py"
     if [[ -r "$gdscheck" ]]; then
       python "$gdscheck" -p >/dev/null 2>&1
-      status=$([ $? -eq 0 ] && echo OK || echo FAIL)
+      cufs=$([ $? -eq 0 ] && echo OK || echo FAIL)
     else
-      status="gdscheck.py missing"
+      cufs="gdscheck.py missing"
     fi
   else
-    status="nvcc not found"
+    cufs="nvcc not found"
   fi
-  echo "$status"
+  echo "$cufs"
 }
 
-## 0.4  NVIDIA health summary (kernel modules, services, CUDA, cuFile) -----
+## 0.4  NVIDIA health summary (Linux) --------------------------------------
 _rnvzsh_nvidia_status() {
   local kernel_status services_status cuda_status cufile_status rmapi_status="TODO"
 
@@ -56,14 +63,14 @@ _rnvzsh_nvidia_status() {
   fi
 
   # Services
-  local svc bad_svcs=()
+  local bad_svcs=() svc
   for svc in nvidia-fabricmanager nvidia-persistenced; do
     systemctl is-active --quiet "$svc" 2>/dev/null || bad_svcs+=("$svc")
   done
   services_status=${bad_svcs:+${(j:, :)bad_svcs}}
   [[ -z $services_status ]] && services_status="OK"
 
-  # CUDA
+  # CUDA version
   if command -v nvcc &>/dev/null; then
     cuda_status=$(nvcc --version | awk -F' ' '/release/ {print $6}' | tr -d ,)
   elif command -v nvidia-smi &>/dev/null; then
@@ -72,7 +79,7 @@ _rnvzsh_nvidia_status() {
     cuda_status="nvcc / nvidia-smi not found"
   fi
 
-  # cuFile
+  # cuFile status
   cufile_status=$(_rnvzsh_cufile_status)
 
   # Print block
@@ -83,12 +90,13 @@ _rnvzsh_nvidia_status() {
   echo "cuFile API: $cufile_status"
 }
 
-## 0.5  Remote cluster status (macOS only) ---------------------------------
-#  Logic:
-#    • ping 1× 1 s to determine reachability   → Server: UP/DOWN
-#    • if UP: attempt key-based SSH probe      → if OK list MicroK8s pods
-#                                                + Docker containers
-#                                              → if no key list requires-auth
+## 0.5  Remote cluster summary (macOS) -------------------------------------
+#  Steps:
+#    • ping 1× (1 s) ➜ reachability
+#    • if reachable:
+#         – key‑based SSH probe (BatchMode)
+#         – list microk8s pods + Docker containers
+#    • Clean out noisy “<none>” tokens, show “none” if empty
 _rnvzsh_remote_status() {
   local remote_host="${remote:-$SSH_REMOTE}"
   [[ -z $remote_host ]] && { echo "Server: (no remote set)"; echo "PODs: [n/a]"; return; }
@@ -96,17 +104,19 @@ _rnvzsh_remote_status() {
   local ping_target="${remote_host#*@}"
   if ping -c1 -W1 "$ping_target" >/dev/null 2>&1; then
     echo -n "Server: UP"
-    # silent public-key SSH probe
     if ssh -T -o BatchMode=yes -o ConnectTimeout=3 \
           -o PreferredAuthentications=publickey \
           -o NumberOfPasswordPrompts=0 \
           "$remote_host" 'true' 2>/dev/null; then
       echo
       local pods ctrs list
-      pods=$(ssh "$remote_host" "microk8s kubectl get pods -A --no-headers -o custom-columns=\":metadata.namespace/:metadata.name\"" 2>/dev/null)
+      pods=$(ssh "$remote_host" \
+             "microk8s kubectl get pods -A --no-headers -o custom-columns=\":metadata.namespace/:metadata.name\"" \
+             2>/dev/null)
       ctrs=$(ssh "$remote_host" "docker ps --format \"{{.Names}}\"" 2>/dev/null)
-      list="$(echo $pods $ctrs | xargs)"
-      echo "PODs: [${list:-none}]"
+      list="$(echo $pods $ctrs | xargs | sed 's/<none>//g' | xargs)"
+      [[ -z $list ]] && list="none"
+      echo "PODs: [$list]"
     else
       echo
       echo "PODs: [ssh auth required]"
@@ -187,9 +197,9 @@ done
 # ──────────────────────────────────────────────────────────────────────────
 # 6)  PROMPT
 # ──────────────────────────────────────────────────────────────────────────
-#   Format: alice@host [RNvZSH]: /current/dir »
+#   Example: alice@workstation [RNvSH]: ~/code »
 setopt PROMPT_SUBST
-PROMPT='%F{cyan}%n@%m%f [RNvZSH]: %F{yellow}%~%f %F{green}»%f '
+PROMPT='%F{cyan}%n@%m%f [RNvSH]: %F{yellow}%~%f %F{green}»%f '
 
 
 
