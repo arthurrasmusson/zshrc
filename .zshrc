@@ -12,65 +12,57 @@
 #     chsh -s /usr/local/bin/rnvzsh
 #  ------------------------------------------------------------------------
 
-
 # ──────────────────────────────────────────────────────────────────────────
-# 0)  START‑UP: banner, environment probes, remote/GPU status
+# 0)  START‑UP  (banner, environment probes, remote/GPU status)
 # ──────────────────────────────────────────────────────────────────────────
 
-## 0.1  Populate $SSH_REMOTE from ~/.project-digits
-#       (expects one line, e.g. “root@172.29.0.47”).
-if [[ -z $SSH_REMOTE && -f ~/.project-digits ]]; then
-  SSH_REMOTE=$(< ~/.project-digits)
-  SSH_REMOTE=${SSH_REMOTE//[$'\t\r\n ']}   # trim whitespace
-fi
-
-## 0.2  Banner  -------------------------------------------------------------
-_rnvzsh_banner() {
-  echo -e "\n\033[1;32mWelcome to Rasmusson-Nvidia ZSHell\033[0m"
+# 0.1  Populate $SSH_REMOTE from ~/.project-digits  (one line: user@host)
+[[ -z $SSH_REMOTE && -f ~/.project-digits ]] && {
+  SSH_REMOTE=$(< ~/.project-digits); SSH_REMOTE=${SSH_REMOTE//[$'\t\r\n ']}
 }
 
-## 0.3  cuFile / GPUDirect Storage probe (Linux) ---------------------------
-# NOTE:  Do *not* name a variable “status” — that identifier is a
-#        readonly special parameter in Z‑shell holding the last exit code.
+# 0.2  Banner
+_rnvzsh_banner() { echo -e "\n\033[1;32mWelcome to Rasmusson-Nvidia ZSHell\033[0m"; }
+
+# 0.3  cuFile / GPUDirect Storage probe  (handles missing gdscheck.py)
 _rnvzsh_cufile_status() {
-  local version cuda_base gdscheck cufs
-  if command -v nvcc &>/dev/null; then
-    version=$(nvcc --version | awk -F' ' '/release/ {print $6}' | tr -d ,)
-    cuda_base="/usr/local/cuda-$version"
-    gdscheck="$cuda_base/gds/tools/gdscheck.py"
-    if [[ -r "$gdscheck" ]]; then
-      python "$gdscheck" -p >/dev/null 2>&1
-      cufs=$([ $? -eq 0 ] && echo OK || echo FAIL)
-    else
-      cufs="gdscheck.py missing"
-    fi
+  local gdscheck cufs
+
+  if command -v gdscheck.py &>/dev/null; then
+    gdscheck=$(command -v gdscheck.py)
   else
-    cufs="nvcc not found"
+    for g in /usr/local/cuda*/gds/tools/gdscheck.py; do
+      [[ -r $g ]] && { gdscheck=$g; break; }
+    done
+  fi
+
+  if [[ -n $gdscheck ]]; then
+    python "$gdscheck" -p &>/dev/null
+    cufs=$([ $? -eq 0 ] && echo OK || echo FAIL)
+  else
+    cufs="gdscheck.py missing"
   fi
   echo "$cufs"
 }
 
-## 0.4  NVIDIA health summary (Linux) --------------------------------------
+# 0.4  NVIDIA health summary (Linux)
 _rnvzsh_nvidia_status() {
-  local kernel_status services_status cuda_status cufile_status rmapi_status="TODO"
+  local kernel_status services_status cuda_status rmapi_status="TODO"
+  local cufile_status
 
-  # Kernel modules
   if lsmod 2>/dev/null | grep -qE '^nvidia(_|$)'; then
     kernel_status="OK"
   else
-    kernel_status=$(lsmod 2>/dev/null | awk '/nvidia/ {print $1}' | tr '\n' ' ')
+    kernel_status=$(lsmod 2>/dev/null | awk '/nvidia/ {print $1}' | xargs)
     [[ -z $kernel_status ]] && kernel_status="nvidia (not loaded)"
   fi
 
-  # Services
-  local bad_svcs=() svc
+  local svc bad_svcs=()
   for svc in nvidia-fabricmanager nvidia-persistenced; do
-    systemctl is-active --quiet "$svc" 2>/dev/null || bad_svcs+=("$svc")
+    systemctl is-active --quiet "$svc" || bad_svcs+=("$svc")
   done
-  services_status=${bad_svcs:+${(j:, :)bad_svcs}}
-  [[ -z $services_status ]] && services_status="OK"
+  services_status=${bad_svcs:+${(j:, :)bad_svcs}}; [[ -z $services_status ]] && services_status="OK"
 
-  # CUDA version
   if command -v nvcc &>/dev/null; then
     cuda_status=$(nvcc --version | awk -F' ' '/release/ {print $6}' | tr -d ,)
   elif command -v nvidia-smi &>/dev/null; then
@@ -79,10 +71,8 @@ _rnvzsh_nvidia_status() {
     cuda_status="nvcc / nvidia-smi not found"
   fi
 
-  # cuFile status
   cufile_status=$(_rnvzsh_cufile_status)
 
-  # Print block
   echo "Nvidia Kernel:  $kernel_status"
   echo "Nvidia Services: $services_status"
   echo "RM API MAJOR-MINOR: $rmapi_status"
@@ -90,35 +80,43 @@ _rnvzsh_nvidia_status() {
   echo "cuFile API: $cufile_status"
 }
 
-## 0.5  Remote cluster summary (macOS) -------------------------------------
-#  Steps:
-#    • ping 1× (1 s) ➜ reachability
-#    • if reachable:
-#         – key‑based SSH probe (BatchMode)
-#         – list microk8s pods + Docker containers
-#    • Clean out noisy “<none>” tokens, show “none” if empty
+# 0.5  Remote cluster summary (macOS)  — now lists real pods/containers
 _rnvzsh_remote_status() {
   local remote_host="${remote:-$SSH_REMOTE}"
   [[ -z $remote_host ]] && { echo "Server: (no remote set)"; echo "PODs: [n/a]"; return; }
 
-  local ping_target="${remote_host#*@}"
-  if ping -c1 -W1 "$ping_target" >/dev/null 2>&1; then
-    echo -n "Server: UP"
+  local target="${remote_host#*@}"
+  if ping -c1 -W1 "$target" &>/dev/null; then
+    echo "Server: UP"
+
     if ssh -T -o BatchMode=yes -o ConnectTimeout=3 \
-          -o PreferredAuthentications=publickey \
-          -o NumberOfPasswordPrompts=0 \
-          "$remote_host" 'true' 2>/dev/null; then
-      echo
-      local pods ctrs list
-      pods=$(ssh "$remote_host" \
-             "microk8s kubectl get pods -A --no-headers -o custom-columns=\":metadata.namespace/:metadata.name\"" \
-             2>/dev/null)
-      ctrs=$(ssh "$remote_host" "docker ps --format \"{{.Names}}\"" 2>/dev/null)
-      list="$(echo $pods $ctrs | xargs | sed 's/<none>//g' | xargs)"
-      [[ -z $list ]] && list="none"
-      echo "PODs: [$list]"
+           -o PreferredAuthentications=publickey \
+           -o NumberOfPasswordPrompts=0 "$remote_host" 'true' 2>/dev/null; then
+
+      # --- fetch pods (JSONPath avoids <none> noise) --------------------
+      local pods
+      pods=$(ssh "$remote_host" '
+        export PATH=$PATH:/snap/bin
+        microk8s kubectl get pods -A -o jsonpath="{range .items[*]}{.metadata.namespace}/{.metadata.name} {.status.phase}{\"\\n\"}{end}" 2>/dev/null
+      ')
+
+      # --- fetch docker containers -------------------------------------
+      local ctrs
+      ctrs=$(ssh "$remote_host" 'docker ps --format "{{.Names}} {{.Status}}"' 2>/dev/null)
+
+      # --- pretty‑print -------------------------------------------------
+      if [[ -n $pods ]]; then
+        echo "PODs:"
+        printf '  %s\n' ${(f)pods}
+      else
+        echo "PODs: none"
+      fi
+
+      if [[ -n $ctrs ]]; then
+        echo "Containers:"
+        printf '  %s\n' ${(f)ctrs}
+      fi
     else
-      echo
       echo "PODs: [ssh auth required]"
     fi
   else
@@ -127,7 +125,7 @@ _rnvzsh_remote_status() {
   fi
 }
 
-## 0.6  Execute banner + status --------------------------------------------
+# 0.6  Execute banner + status
 _rnvzsh_banner
 case "$(uname -s)" in
   Linux)  _rnvzsh_nvidia_status ;;
@@ -141,10 +139,8 @@ esac
 # ──────────────────────────────────────────────────────────────────────────
 case "$(uname -s)" in
   Darwin) ZSH_OS="macos" ;;
-  Linux)
-    if [[ -f /etc/os-release ]]; then . /etc/os-release; ZSH_OS="$ID"
-    else ZSH_OS="linux"; fi ;;
-  *) ZSH_OS="unknown" ;;
+  Linux)   [[ -f /etc/os-release ]] && . /etc/os-release && ZSH_OS="$ID" || ZSH_OS="linux" ;;
+  *)      ZSH_OS="unknown" ;;
 esac
 
 
@@ -153,10 +149,8 @@ esac
 # 2)  PATH & ENVIRONMENT
 # ──────────────────────────────────────────────────────────────────────────
 export PATH="$HOME/.local/bin:$PATH"
-if [[ "$ZSH_OS" == "macos" ]]; then
-  export PATH="/opt/homebrew/opt/python@3.13/libexec/bin:$PATH"
-fi
-if [[ "$ZSH_OS" != "macos" ]] && command -v nvcc &>/dev/null; then
+[[ "$ZSH_OS" == macos ]] && export PATH="/opt/homebrew/opt/python@3.13/libexec/bin:$PATH"
+if [[ "$ZSH_OS" != macos ]] && command -v nvcc &>/dev/null; then
   export CUDA_HOME="$(dirname "$(dirname "$(command -v nvcc)")")"
   export PATH="$CUDA_HOME/bin:$PATH"
   export LD_LIBRARY_PATH="$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}"
@@ -185,11 +179,8 @@ SAVEHIST=10000
 # ──────────────────────────────────────────────────────────────────────────
 autoload -Uz compinit; compinit
 for plugin in zsh-syntax-highlighting zsh-autosuggestions; do
-  if [[ -r "/opt/homebrew/share/$plugin/$plugin.zsh" ]]; then
-    source "/opt/homebrew/share/$plugin/$plugin.zsh"
-  elif [[ -r "/usr/share/$plugin/$plugin.zsh" ]]; then
-    source "/usr/share/$plugin/$plugin.zsh"
-  fi
+  [[ -r "/opt/homebrew/share/$plugin/$plugin.zsh" ]] && source "/opt/homebrew/share/$plugin/$plugin.zsh"
+  [[ -r "/usr/share/$plugin/$plugin.zsh" ]] && source "/usr/share/$plugin/$plugin.zsh"
 done
 
 
@@ -197,16 +188,15 @@ done
 # ──────────────────────────────────────────────────────────────────────────
 # 6)  PROMPT
 # ──────────────────────────────────────────────────────────────────────────
-#   Example: alice@workstation [RNvSH]: ~/code »
 setopt PROMPT_SUBST
-PROMPT='%F{cyan}%n@%m%f [RNvSH]: %F{yellow}%~%f %F{green}»%f '
+PROMPT='%F{cyan}%n@%m%f [RNvZSH]: %F{yellow}%~%f %F{green}»%f '
 
 
 
 # ──────────────────────────────────────────────────────────────────────────
 # 7)  AUTOJUMP
 # ──────────────────────────────────────────────────────────────────────────
-if [[ "$ZSH_OS" == "macos" ]]; then
+if [[ "$ZSH_OS" == macos ]]; then
   [[ -f /opt/homebrew/etc/profile.d/autojump.sh ]] && source /opt/homebrew/etc/profile.d/autojump.sh
 elif [[ -f /etc/profile.d/autojump.sh ]]; then
   source /etc/profile.d/autojump.sh
@@ -221,7 +211,7 @@ alias ll='ls -lh'
 alias la='ls -lha'
 alias gs='git status'
 alias gl='git log --oneline --graph --decorate'
-bindkey -v
+bindkey -v                 # vi‑mode editing
 
 
 
