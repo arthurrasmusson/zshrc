@@ -255,6 +255,7 @@ COMMANDS
   update                      Upgrade packages and pull latest ~/.zshrc.
   nvidia <sub> [...]          Manage / inspect NVIDIA driver + CUDA + GDS.
   git push                    Commit & push ~/Git/zshrc with date-stamp.
+  connect zsh [host]          SSH into <host> (or \$SSH_REMOTE) and start zsh.
 
 Run “rzsh nvidia” for NVIDIA-specific sub-commands.
 EOF
@@ -316,6 +317,26 @@ EOF
 EOF
       ;;
 
+    # ------------------------------------------- connect ---------------
+    connect)
+      case "$sub" in
+        zsh)
+          # Host selection priority: explicit [host] arg ➜ $remote ➜ $SSH_REMOTE
+          local tgt="${extra:-${remote:-$SSH_REMOTE}}"
+          if [[ -z $tgt ]]; then
+            echo "No remote host specified and \$SSH_REMOTE is unset."
+            echo "Usage: rzsh connect zsh [user@host]"
+            return
+          fi
+          echo ">>> Connecting to $tgt … (type 'exit' to return)"
+          ssh -t "$tgt" 'exec zsh -l'
+          ;;
+        *)
+          echo "Usage: rzsh connect zsh [user@host]"
+          ;;
+      esac
+      ;;
+    
     # ---------------------------------------------- update --------------
     update)
       case "$ZSH_OS" in
