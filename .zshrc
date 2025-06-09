@@ -21,6 +21,38 @@
   SSH_REMOTE=$(< ~/.project-digits); SSH_REMOTE=${SSH_REMOTE//[$'\t\r\n ']}
 }
 
+# 0.15  Generic CUDA environment ──────────────────────────────────────────
+_rnvzsh_set_cuda_env() {
+  # Skip if CUDA_HOME already valid
+  if [[ -n $CUDA_HOME && -x $CUDA_HOME/bin/nvcc ]]; then return; fi
+
+  # 1) prefer the default /usr/local/cuda symlink
+  local candidate
+  if [[ -x /usr/local/cuda/bin/nvcc ]]; then
+    candidate=/usr/local/cuda
+  else
+    # 2) otherwise pick the highest version dir /usr/local/cuda-*
+    candidate=$(ls -d /usr/local/cuda-[0-9]* 2>/dev/null | sort -V | tail -n1)
+  fi
+
+  [[ -z $candidate ]] && return   # no CUDA found
+
+  export CUDA_HOME="$candidate"
+  export CUDA_PATH="$CUDA_HOME"
+  export PATH="$CUDA_HOME/bin:$PATH"
+
+  # Classic lib64 and new targets path (if they exist)
+  [[ -d $CUDA_HOME/lib64 ]] && export LD_LIBRARY_PATH="$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}"
+  [[ -d $CUDA_HOME/targets/x86_64-linux/lib ]] && \
+       export LD_LIBRARY_PATH="$CUDA_HOME/targets/x86_64-linux/lib:${LD_LIBRARY_PATH:-}"
+
+  export LIBRARY_PATH="$CUDA_HOME/lib64:${LIBRARY_PATH:-}"
+}
+_rnvzsh_set_cuda_env
+
+# Source optional NGC key (For NVAIE Developers, put export NGC_CLI_API_KEY='your legacy NVAIE key' in ~/.NGC-KEY)
+[[ -f ~/.NGC-KEY ]] && source ~/.NGC-KEY
+
 # 0.2  Banner
 _rnvzsh_banner() { echo -e "\n\033[1;32mWelcome to Rasmusson-Nvidia ZSHell\033[0m"; }
 
@@ -81,10 +113,14 @@ _rnvzsh_nvidia_status() {
   done
   services_status=${bad_svcs:+${(j:, :)bad_svcs}}; [[ -z $services_status ]] && services_status="OK"
 
+  # ----- CUDA version ----------------------------------------------------
   if command -v nvcc &>/dev/null; then
     cuda_status=$(nvcc --version | awk -F' ' '/release/ {print $6}' | tr -d ,)
   elif command -v nvidia-smi &>/dev/null; then
-    cuda_status=$(nvidia-smi --query-gpu=cuda_version --format=csv,noheader | head -n1)
+    # Newer drivers support query; older ones print version in header
+    cuda_status=$(nvidia-smi --query-gpu=cuda_version --format=csv,noheader 2>/dev/null | head -n1)
+    [[ -z $cuda_status || $cuda_status == *Field* ]] && \
+      cuda_status=$(nvidia-smi | awk '/CUDA Version/ {print $3; exit}')
   else
     cuda_status="nvcc / nvidia-smi not found"
   fi
