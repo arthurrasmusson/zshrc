@@ -519,11 +519,52 @@ EOF
             echo "Usage: rzsh nvidia tensorrt-llm init"
           fi
           ;;
+                # ────────────────────────────────────────────────────────── usage/help
+        |help|--help|-h)
+          cat <<'EONV'
+rzsh nvidia  –  NVIDIA driver & CUDA toolkit helper
+────────────────────────────────────────────────────────────────────
+Syntax
+  rzsh nvidia <subcommand> [options]
+
+Most‑used sub‑commands
+  status                  Print a detailed health report:
+                            • loaded kernel modules
+                            • fabric‑manager & persistence daemons
+                            • driver and CUDA versions
+                            • per‑GPU memory / utilisation table
+                            • GPUDirect Storage probe
+  install                 Install driver + CUDA from the distro repo.
+  install local [VER]     Install CUDA from an NVIDIA .run file sitting
+                          in the current directory, or download it first.
+  update                  Upgrade all NVIDIA packages via the distro
+                          package manager (driver, CUDA, docker, GDS).
+  download cuda [VER]     Download the stand‑alone CUDA .run installer.
+  dump cuda [VER]         Extract a .run installer to ./cuda_<ver>_extract/
+                          so you can inspect RPM/DEB payloads.
+  cuda repack [VER]       Re‑package a previously extracted toolkit into
+                          a self‑extracting .run (requires ‘makeself’).
+  rmapi                   Placeholder for future Resource‑Manager tooling.
+  tensorrt-llm init       Clone NVIDIA/TensorRT‑LLM and add your fork
+                          remote.
+
+Examples
+  rzsh nvidia status
+  rzsh nvidia install                 # repo packages
+  rzsh nvidia install local 12.6      # local .run file
+  rzsh nvidia download cuda 13.0      # just fetch the installer
+  rzsh nvidia cuda repack 12.6        # makeself repack
+
+Tip: run ‘rzsh help’ to see global commands.
+EONV
+          ;;
+        # -------------------------------------------------------------- fallback
         *)
-          echo "Usage: rzsh nvidia {status|install|install local|update|download cuda|dump cuda|cuda repack|rmapi|tensorrt-llm init}"
+          echo "Unknown sub‑command. Try  'rzsh nvidia help'"
           ;;
       esac
       ;;
+
 
     # ---------------------------------------------- git -----------------
     git)
