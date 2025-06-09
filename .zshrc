@@ -428,7 +428,7 @@ EOF
       if [[ "$sub" == "push" ]]; then
         cd "$HOME/Git/zshrc" 2>/dev/null || { echo "Repo not found"; return; }
         git add .
-        git commit -m "$(date +'%Y-%m-%d_%H-%M-%S')" && git push
+        git commit -m "$(date +'%Y-%m-%d_%H-%M-%S')" && git push origin master
       else
         echo "Usage: rzsh git push"
       fi
@@ -442,5 +442,5 @@ EOF
 }
 
 # For muscle-memory with the old name
-alias zshtool='rnvzsh'
+alias znvzsh='rzsh'
 alias zshtool='rzsh'
