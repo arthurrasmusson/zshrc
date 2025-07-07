@@ -584,6 +584,38 @@ EONV
   esac
 }
 
+# ──────────────────────────────────────────────────────────────────────────
+# 10)  RUN ~/.local/bin/*.py Python Scripts By Name In Current Directory
+#      Run 'chmod +x ~/.local/bin/*.py' to make scripts executable
+# ──────────────────────────────────────────────────────────────────────────
+unalias -s py 2>/dev/null
+command_not_found_handler() {
+  emulate -L zsh
+  local cmd=$1; shift
+  local script=""
+
+  # Only intercept *.py
+  if [[ $cmd == *.py ]]; then
+    # Manually search every directory in $path for a readable file
+    local dir
+    for dir in $=path; do
+      if [[ -r $dir/$cmd ]]; then
+        script=$dir/$cmd
+        break
+      fi
+    done
+
+    if [[ -n $script ]]; then
+      # Run under python3 in current path
+      exec python3 "$script" "$@"
+    fi
+  fi
+
+  # Default “command not found” fallback
+  print -u2 -- "$cmd: command not found"
+  return 127
+}
+
 # For muscle-memory with the old name
 alias rnvzsh='rzsh'
 alias zshtool='rzsh'
