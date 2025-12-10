@@ -1,6 +1,6 @@
 # Rasmusson‑Nvidia ZSHell (RNvZSH)
 *A zero‑hassle Z‑shell profile tailored for CUDA
-development on **Project Digits** machines.*
+development on **NVIDIA** servers.*
 
 ---
 
